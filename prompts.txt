@@ -1,0 +1,9 @@
+comando
+
+1- Deixe a recuperação de senha funcionanado normalmente, (envio de link por email) e jáprepare o envio real do link por email e como está em produção mostre esté link em algum pop up, depois que o site estiver em funcionamento retire o pop-up
+
+2- quero que a imagem que apareça como imagem do projeto sejá a da ODS principal do projeto. Acabei de adiciionar a pasta com as imagens da ods, está na pasta "odses/"
+
+3- quero que o aluno possa editar o proprio projeto em alguns quesitos, quero que exita um botão chamado editar na tela de seu projeto, quando ele clicar, vai continuar na mesma pagina, porém vai aparecer botões para editar em cada campo de informação de seu projeto. Não quero que ele possa mudar a imgaem principal do proto, nome e talz. Ele podera mudar a descrição/documentos/QRcode. Se ele quiser mudar integrantes, nomes, professor orientador, excluir o projeto, etc.. Ele clicara em um botão de solicitar alteração para admin, que ficará no lugar do botão de editar o campo em si
+
+4- Esqueci a senha de admin, quero usar a senha FeiraTech01*

@@ -1,0 +1,17 @@
+Necessidades projeto feira:
+ 
+
+Lista do cronograma: Evento, hora e local
+
+Deixar o site responsivo
+
+Tela de Adm para aluno:
+
+
+Frontend: Imagens  de as ODS, Padrozação com o figma, busca por projeto fixa, nomenclaturas
+
+Base de dados de alunos
+
+link do projeto
+
+Botão de editar projeto
