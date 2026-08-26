@@ -975,7 +975,7 @@ function renderNavbar() {
                 <div style="font-weight:700;fontsize:14px;">${escapeHtml(u.name)}</div>
                 <div class="badge badge-green" style="margin-top:6px;">${roleLabel(u.role)}</div>
               </div>
-              <a href="#/perfil" class="sidebar-link" style="margin:6px 8px;" onclick="closeUserMenu()">${icon('user', 17)} Meu perfil</a>
+              ${u.role !== 'admin' ? `<a href="#/perfil" class="sidebar-link" style="margin:6px 8px;" onclick="closeUserMenu()">${icon('user', 17)} Meu perfil</a>` : ''}
               ${u.role === 'professor' ? `<a href="#/area-professor" class="sidebar-link" style="margin:0 8px;" onclick="closeUserMenu()">${icon('layers', 17)} Área do professor</a>` : ''}
               ${u.role === 'admin' ? `<a href="#/admin" class="sidebar-link" style="margin:0 8px;" onclick="closeUserMenu()">${icon('shield', 17)} Painel admin</a>` : ''}
               <button class="sidebar-link" style="margin:0 8px 8px;width:calc(100% - 16px);color:var(--orange-600);" onclick="doLogout()">${icon('logout', 17)} Sair</button>
@@ -1766,8 +1766,9 @@ function pageProjectDetail(id) {
           ${(p.links && /^https?:\/\//i.test(p.links)) ? `<a href="${escapeHtml(p.links)}" target="_blank" class="btn btn-outline btn-sm" style="flex:1;">${icon('external', 15)} Link do projeto</a>` : ''}
         </div>
         ${(p.links && !/^https?:\/\//i.test(p.links)) ? `<div class="field-hint" style="margin-top:8px;">${icon('external', 12)} ${escapeHtml(p.links)}</div>` : ''}
-        ${(state.currentUser && p.criadoPor === state.currentUser.id) ? `
+        ${(state.currentUser && (p.criadoPor === state.currentUser.id || state.currentUser.role === 'admin')) ? `
           <button class="btn btn-secondary btn-block" style="margin-top:12px;" onclick="openEditProjectModal('${p.id}')">${icon('edit',15)} Editar projeto</button>
+          ${state.currentUser.role === 'admin' ? `<button class="btn btn-ghost btn-block" style="margin-top:8px;color:var(--orange-600);" onclick="deleteMyProject('${p.id}')">${icon('trash',15)} Excluir projeto</button>` : ''}
         ` : ''}
         <a href="#/mapa" class="btn btn-ghost btn-block" style="margin-top:8px;">${icon('map', 16)} Ver no mapa da feira</a>
       </div>
@@ -1879,12 +1880,12 @@ function switchProjectTab(i) {
   });
 }
 function canUserVote() {
-  return !(state.currentUser && state.currentUser.role === 'aluno');
+  return !(state.currentUser && ['aluno', 'admin'].includes(state.currentUser.role));
 }
 
 async function voteProject(id) {
-  if (state.currentUser && state.currentUser.role === 'aluno') {
-    toast('Alunos não podem votar. A votação é exclusiva para visitantes.', 'info');
+  if (state.currentUser && ['aluno', 'admin'].includes(state.currentUser.role)) {
+    toast('Esta conta não pode votar. A votação é exclusiva para visitantes.', 'info');
     return;
   }
   if (!state.currentUser) { toast('Faça login para votar.', 'error'); openAuthModal('login'); return; }
@@ -1907,6 +1908,7 @@ function pageRanking() {
   const ranked = state.projects.filter(p => p.status === 'aprovado').sort((a, b) => (b.votes || 0) - (a.votes || 0));
   const max = ranked[0]?.votes || 1;
   const isAluno = !!(state.currentUser && state.currentUser.role === 'aluno');
+  const isAdmin = !!(state.currentUser && state.currentUser.role === 'admin');
   return `
   <div class="page section container">
     <div class="breadcrumb"><a href="#/home">Início</a><span class="sep">${icon('chevronRight', 13)}</span><span>Ranking &amp; Votação</span></div>
@@ -1930,7 +1932,7 @@ function pageRanking() {
                 </div>
                 <div style="text-align:right;flex-shrink:0;">
                   <div style="font-weight:800;font-size:17px;color:var(--green-700);">${p.votes || 0}</div>
-                  ${!isAluno ? `<button class="btn ${hasVoted ? 'btn-ghost' : 'btn-secondary'} btn-sm" style="margin-top:6px;" onclick="voteProject('${p.id}')" ${hasVoted ? 'disabled' : ''}>${hasVoted ? icon('check', 13) : icon('vote', 13)} ${hasVoted ? 'Votado' : 'Votar'}</button>` : ''}
+                  ${!isAluno && !isAdmin ? `<button class="btn ${hasVoted ? 'btn-ghost' : 'btn-secondary'} btn-sm" style="margin-top:6px;" onclick="voteProject('${p.id}')" ${hasVoted ? 'disabled' : ''}>${hasVoted ? icon('check', 13) : icon('vote', 13)} ${hasVoted ? 'Votado' : 'Votar'}</button>` : ''}
                 </div>
               </div>
             </div>`;
@@ -1944,7 +1946,7 @@ function pageRanking() {
         </div>
         <div class="card card-pad" style="background:var(--green-50);border-color:var(--green-100);">
           <div class="flex items-center gap-12" style="margin-bottom:10px;">${icon('info', 18)}<strong style="font-size:14px;">Como funciona</strong></div>
-          <p style="font-size:13.5px;color:var(--ink-700);line-height:1.6;">${isAluno ? 'A visualização da votação permanece disponível para alunos, mas o envio de votos está restrito a visitantes.' : 'Cada visitante autenticado pode votar apenas uma vez em cada projeto. O ranking é público e atualizado instantaneamente.'}</p>
+          <p style="font-size:13.5px;color:var(--ink-700);line-height:1.6;">${isAluno || isAdmin ? 'A votação permanece visível, mas esta conta não pode registrar votos.' : 'Cada visitante autenticado pode votar apenas uma vez em cada projeto. O ranking é público e atualizado instantaneamente.'}</p>
         </div>
       </div>
     </div>
@@ -3031,7 +3033,8 @@ async function joinFoundProject(chave) {
 function openEditProjectModal(id) {
   const p = state.projects.find(x => x.id === id);
   if (!p) return;
-  if (!state.currentUser || p.criadoPor !== state.currentUser.id) {
+  const isAdmin = state.currentUser?.role === 'admin';
+  if (!state.currentUser || (!isAdmin && p.criadoPor !== state.currentUser.id)) {
     toast('Você só pode editar projetos que você mesmo cadastrou.', 'error');
     return;
   }
@@ -3048,14 +3051,11 @@ function openEditProjectModal(id) {
         <div class="card card-pad" style="margin-bottom:12px;">
           <div class="field">
             <label>Nome do projeto * <span style="font-weight:400;color:var(--ink-300);">${icon('lock',11)} bloqueado</span></label>
-            <input class="input" style="cursor:pointer;background:var(--ink-50);color:var(--ink-500);" readonly value="${escapeHtml(p.name || '')}" onclick="requestLockedFieldChange('${p.id}','Nome do projeto')">
-            <input type="hidden" name="nome" value="${escapeHtml(p.name || '')}">
-            <div class="field-hint" style="margin-top:6px;">${icon('lock',11)} O nome não pode ser alterado por aqui. Clique no campo para solicitar a mudança ao admin.</div>
+            ${isAdmin ? `<input class="input" name="nome" value="${escapeHtml(p.name || '')}" required>` : `<input class="input" style="cursor:pointer;background:var(--ink-50);color:var(--ink-500);" readonly value="${escapeHtml(p.name || '')}" onclick="requestLockedFieldChange('${p.id}','Nome do projeto')"><input type="hidden" name="nome" value="${escapeHtml(p.name || '')}"><div class="field-hint" style="margin-top:6px;">${icon('lock',11)} O nome só pode ser alterado pelo admin.</div>`}
           </div>
           <div class="field">
             <label>Integrantes <span style="font-weight:400;color:var(--ink-300);">${icon('lock',11)} bloqueado</span></label>
-            <input class="input" style="cursor:pointer;background:var(--ink-50);color:var(--ink-500);" readonly value="${escapeHtml(equipeStr || 'Nenhum integrante cadastrado')}" onclick="requestLockedFieldChange('${p.id}','Integrantes')">
-            <div class="field-hint" style="margin-top:6px;">${icon('lock',11)} Para adicionar ou remover integrantes, clique no campo e solicite ao admin.</div>
+            ${isAdmin ? `<textarea class="textarea" name="membros" rows="3">${escapeHtml(JSON.stringify(p.membros || [], null, 2))}</textarea><div class="field-hint">Informe os IDs dos integrantes em JSON.</div>` : `<input class="input" style="cursor:pointer;background:var(--ink-50);color:var(--ink-500);" readonly value="${escapeHtml(equipeStr || 'Nenhum integrante cadastrado')}" onclick="requestLockedFieldChange('${p.id}','Integrantes')"><div class="field-hint" style="margin-top:6px;">${icon('lock',11)} Para adicionar ou remover integrantes, solicite ao admin.</div>`}
           </div>
           <div class="field">
             <label>ODS <span style="font-weight:400;color:var(--ink-300);">(opcional)</span></label>
@@ -3072,9 +3072,7 @@ function openEditProjectModal(id) {
           </div>
           <div class="field">
             <label>Professor orientador * <span style="font-weight:400;color:var(--ink-300);">${icon('lock',11)} bloqueado</span></label>
-            <input class="input" style="cursor:pointer;background:var(--ink-50);color:var(--ink-500);" readonly value="${escapeHtml(teacherOf(p.teacher, p.teacherName)?.name || '')}" onclick="requestLockedFieldChange('${p.id}','Professor orientador')">
-            <input type="hidden" name="professor" value="${escapeHtml(p.teacher || '')}">
-            <div class="field-hint" style="margin-top:6px;">${icon('lock',11)} O orientador não pode ser alterado por aqui. Clique no campo para solicitar a mudança ao admin.</div>
+            ${isAdmin ? `<select class="select" name="professor_id"><option value="">Sem orientador</option>${(state.teachers || MOCK.teachers).map(t => `<option value="${escapeHtml(t.id)}" ${t.id === p.teacher ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('')}</select>` : `<input class="input" style="cursor:pointer;background:var(--ink-50);color:var(--ink-500);" readonly value="${escapeHtml(teacherOf(p.teacher, p.teacherName)?.name || '')}" onclick="requestLockedFieldChange('${p.id}','Professor orientador')"><input type="hidden" name="professor" value="${escapeHtml(p.teacher || '')}"><div class="field-hint" style="margin-top:6px;">${icon('lock',11)} O orientador só pode ser alterado pelo admin.</div>`}
           </div>
           <div class="field"><label>Links (GitHub, docs, endereço de QR code etc..) <span style="font-weight:400;color:var(--ink-300);">(opcional)</span></label><input class="input" name="links" value="${escapeHtml(p.links || '')}"></div>
         </div>
@@ -3132,12 +3130,13 @@ async function handleEditProjectSubmit(e, id) {
   const turma = p.turma || '';
   const periodo = p.periodo || 'manha';
   const curso = p.course || p.curso || '';
-  const professor = (f.professor && f.professor.value) || p.teacher || null;
+  const isAdmin = state.currentUser?.role === 'admin';
+  const professor = (isAdmin ? f.professor_id?.value : f.professor?.value) || p.teacher || null;
   const links = (f.links && f.links.value.trim()) || p.links || '';
   const ods = (f.ods && f.ods.value) || (f.odsDisplay && f.odsDisplay.value) || p.ods || '';
   const payload = {
     id,
-    usuario_id: state.currentUser.id,
+    usuario_id: isAdmin ? null : state.currentUser.id,
     nome,
     turma,
     curso,
@@ -3151,6 +3150,13 @@ async function handleEditProjectSubmit(e, id) {
     site: (f.site && f.site.value.trim()) || p.site || '',
     links,
   };
+  if (isAdmin && f.membros) {
+    try {
+      const members = JSON.parse(f.membros.value || '[]');
+      if (!Array.isArray(members)) throw new Error();
+      payload.membros = members;
+    } catch (err) { toast('Integrantes deve ser uma lista JSON válida.', 'error'); return false; }
+  }
   // include files from pendingCadastro if any
   if (pendingCadastro.cover) payload.capa = pendingCadastro.cover;
   if (pendingCadastro.doc) payload.documento = pendingCadastro.doc;
@@ -3189,7 +3195,7 @@ async function deleteMyAccount() {
 async function deleteMyProject(id) {
   if (!confirm('Tem certeza que deseja excluir este projeto? Essa ação não pode ser desfeita.')) return;
   try {
-    const result = await dataManager.deleteProject(id, state.currentUser?.id);
+    const result = await dataManager.deleteProject(id, state.currentUser?.role === 'admin' ? null : state.currentUser?.id);
     if (result.success) {
       toast('Projeto excluído.', 'info');
       await loadAllData();
@@ -3216,6 +3222,10 @@ async function markOfficeAttended(oficinaId) {
 
 async function voteOffice(oficinaId) {
   if (!state.currentUser) return;
+  if (state.currentUser.role === 'admin') {
+    toast('Administradores não podem votar.', 'info');
+    return;
+  }
   try {
     const result = await dataManager.voteOffice(state.currentUser.id, oficinaId);
     if (result.success) {
@@ -3340,7 +3350,7 @@ async function render() {
     case 'cronograma': content = pageSchedule(); break;
     case 'mapa': content = pageMap(); break;
     case 'noticias': content = pageNews(); break;
-    case 'perfil': content = pageProfile(); break;
+    case 'perfil': content = state.currentUser?.role === 'admin' ? pageAdmin() : pageProfile(); break;
     case 'cadastro-projeto': content = pageCadastroProjeto(); break;
     case 'area-professor': content = pageTeacherArea(); break;
     case 'admin': content = pageAdmin(); break;

@@ -15,6 +15,14 @@ if (empty($usuario_id) || empty($oficina_id)) {
     exit;
 }
 
+$stmt = $pdo->prepare("SELECT role FROM usuarios WHERE id = ? LIMIT 1");
+$stmt->execute([$usuario_id]);
+if (($stmt->fetchColumn() ?: '') === 'admin') {
+    http_response_code(403);
+    echo json_encode(['error' => 'Administradores não podem votar']);
+    exit;
+}
+
 // O aluno só pode votar em oficinas que ele frequentou
 $stmt = $pdo->prepare("SELECT 1 FROM inscricoes_oficinas WHERE usuario_id = ? AND oficina_id = ?");
 $stmt->execute([$usuario_id, $oficina_id]);

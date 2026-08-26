@@ -12,6 +12,14 @@ if (empty($usuario_id) || empty($projeto_id)) {
     exit;
 }
 
+$stmt = $pdo->prepare("SELECT role FROM usuarios WHERE id = ? LIMIT 1");
+$stmt->execute([$usuario_id]);
+if (($stmt->fetchColumn() ?: '') === 'admin') {
+    http_response_code(403);
+    echo json_encode(['error' => 'Administradores não podem votar']);
+    exit;
+}
+
 // Verificar se já votou
 $stmt = $pdo->prepare("SELECT 1 FROM votos WHERE usuario_id = ? AND projeto_id = ?");
 $stmt->execute([$usuario_id, $projeto_id]);
