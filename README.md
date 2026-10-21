@@ -1,4 +1,4 @@
-::: {align="center"}
+
 # 🔴 Feira Tech MCM
 
 ### Tecnologia, inovação e sustentabilidade na ETEC Maria Cristina Medeiros
